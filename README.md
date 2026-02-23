@@ -12,7 +12,7 @@ The backend API for the Larvue Shop e-commerce application, built with Laravel 1
 ## Features
 
 - Token-based API authentication with admin role enforcement
-- Product management with soft deletes and audit trails
+- Product management with quantity tracking, image uploads, soft deletes, and audit trails
 - Shopping cart system
 - Order management with items, details, and payments
 - Customer management with addresses
@@ -39,6 +39,12 @@ composer setup
 ```
 
 This will install dependencies, generate the app key, run migrations, and build assets.
+
+Create the storage symlink for serving uploaded images:
+
+```bash
+php artisan storage:link
+```
 
 To seed the database with default admin users:
 
@@ -70,10 +76,15 @@ composer test
 
 ### Protected (Sanctum + Admin)
 
-| Method | Endpoint      | Description            |
-| ------ | ------------- | ---------------------- |
-| GET    | `/api/user`   | Get authenticated user |
-| POST   | `/api/logout` | Logout (revoke token)  |
+| Method     | Endpoint                 | Description            |
+| ---------- | ------------------------ | ---------------------- |
+| GET        | `/api/user`              | Get authenticated user |
+| POST       | `/api/logout`            | Logout (revoke token)  |
+| GET        | `/api/products`          | List products          |
+| POST       | `/api/products`          | Create a product       |
+| GET        | `/api/products/{product}` | Get a product         |
+| PUT/PATCH  | `/api/products/{product}` | Update a product      |
+| DELETE     | `/api/products/{product}` | Delete a product      |
 
 ## Database Schema
 
