@@ -12,6 +12,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->statefulApi();
         $middleware->alias([
             'isAdmin' => \App\Http\Middleware\isAdmin::class,
             'isCustomer' => \App\Http\Middleware\isCustomer::class,

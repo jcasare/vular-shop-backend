@@ -1,17 +1,20 @@
 # Larvue Shop - Backend API
 
-The backend API for the Larvue Shop e-commerce application, built with Laravel 12 and Laravel Sanctum for token-based authentication.
+The backend API for the Larvue Shop e-commerce application, built with Laravel 12 and Laravel Sanctum for cookie/session-based SPA authentication.
 
 ## Tech Stack
 
 - **Framework:** Laravel 12 (PHP 8.2+)
-- **Authentication:** Laravel Sanctum (token-based)
+- **Authentication:** Laravel Sanctum (cookie/session-based SPA mode)
 - **Database:** MySQL
 - **Queue/Cache/Sessions:** Database driver
 
 ## Features
 
-- Token-based API authentication with admin role enforcement
+- Cookie/session-based SPA authentication with CSRF protection
+- Unified auth endpoints for all user roles (admin, customer)
+- Role-based access control via middleware (`isAdmin`, `isCustomer`)
+- Google OAuth login for customers
 - Product management with quantity tracking, image uploads, soft deletes, and audit trails
 - Shopping cart system
 - Order management with items, details, and payments
@@ -66,25 +69,46 @@ composer dev
 composer test
 ```
 
+## Authentication Flow
+
+This app uses Sanctum's **cookie/session-based SPA authentication**, not token-based auth. The flow works as follows:
+
+1. Frontend calls `GET /sanctum/csrf-cookie` to receive an `XSRF-TOKEN` cookie
+2. Frontend sends login request — Laravel starts a session and sends back an `httpOnly` session cookie
+3. All subsequent requests include the session cookie automatically (via `withCredentials: true` on axios)
+4. The session cookie is `httpOnly`, meaning JavaScript cannot access it — protecting against XSS token theft
+
+### CORS Configuration
+
+The frontend origins are explicitly whitelisted in `config/cors.php` with `supports_credentials: true`. Sanctum's stateful domains are configured in `config/sanctum.php` to include the frontend subdomains.
+
 ## API Endpoints
 
-### Public
+### Public Auth
 
-| Method | Endpoint     | Description |
-| ------ | ------------ | ----------- |
-| POST   | `/api/login` | Admin login |
+| Method | Endpoint                       | Description              |
+| ------ | ------------------------------ | ------------------------ |
+| POST   | `/api/auth/login`              | Login (all roles)        |
+| POST   | `/api/auth/register`           | Register (customer only) |
+| GET    | `/api/auth/google/redirect`    | Google OAuth redirect    |
+| GET    | `/api/auth/google/callback`    | Google OAuth callback    |
 
-### Protected (Sanctum + Admin)
+### Protected Auth (any authenticated user)
 
-| Method     | Endpoint                 | Description            |
-| ---------- | ------------------------ | ---------------------- |
-| GET        | `/api/user`              | Get authenticated user |
-| POST       | `/api/logout`            | Logout (revoke token)  |
-| GET        | `/api/products`          | List products          |
-| POST       | `/api/products`          | Create a product       |
-| GET        | `/api/products/{product}` | Get a product         |
-| PUT/PATCH  | `/api/products/{product}` | Update a product      |
-| DELETE     | `/api/products/{product}` | Delete a product      |
+| Method | Endpoint             | Description              |
+| ------ | -------------------- | ------------------------ |
+| GET    | `/api/auth/user`     | Get authenticated user   |
+| POST   | `/api/auth/logout`   | Logout (destroy session) |
+
+### Protected Admin (`auth:sanctum` + `isAdmin`)
+
+| Method    | Endpoint                    | Description    |
+| --------- | --------------------------- | -------------- |
+| GET       | `/api/admin/products`       | List products  |
+| POST      | `/api/admin/products`       | Create product |
+| GET       | `/api/admin/products/{id}`  | Get product    |
+| PUT/PATCH | `/api/admin/products/{id}`  | Update product |
+| DELETE    | `/api/admin/products/{id}`  | Delete product |
 
 ## Database Schema
 

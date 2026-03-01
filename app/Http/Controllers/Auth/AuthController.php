@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\CustomerLoginRequest;
+use App\Http\Requests\LoginRequest;
 use App\Http\Requests\CustomerRegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Customer;
@@ -15,8 +15,31 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Socialite\Facades\Socialite;
 
-class CustomerAuthController extends Controller
+class AuthController extends Controller
 {
+    public function login(LoginRequest $request): JsonResponse
+    {
+        $credentials = $request->validated();
+        $remember = $credentials['remember_me'] ?? false;
+
+        if (!Auth::attempt($credentials, $remember)) {
+            return response()->json(['message' => 'Invalid email or password'], 401);
+        }
+
+        $request->session()->regenerate();
+
+        /** @var User $user */
+        $user = Auth::user();
+
+        if ($user->role === 'customer') {
+            $user->load('customer');
+        }
+
+        return response()->json([
+            'user' => new UserResource($user),
+        ]);
+    }
+
     public function register(CustomerRegisterRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -41,36 +64,35 @@ class CustomerAuthController extends Controller
             return $user;
         });
 
-        $token = $user->createToken('customer_token')->plainTextToken;
+        Auth::login($user);
+        $request->session()->regenerate();
 
         return response()->json([
-            'access_token' => $token,
             'user' => new UserResource($user->load('customer')),
         ], 201);
     }
 
-    public function login(CustomerLoginRequest $request): JsonResponse
+    public function user(Request $request): JsonResponse
     {
-        $credentials = $request->validated();
-
-        if (!Auth::attempt($credentials)) {
-            return response()->json(['message' => 'Invalid email or password'], 401);
-        }
-
         /** @var User $user */
-        $user = Auth::user();
+        $user = $request->user();
 
-        if ($user->role !== 'customer') {
-            Auth::logout();
-            return response()->json(['message' => 'Invalid email or password'], 401);
+        if ($user->role === 'customer') {
+            $user->load('customer');
         }
-
-        $token = $user->createToken('customer_token')->plainTextToken;
 
         return response()->json([
-            'access_token' => $token,
-            'user' => new UserResource($user->load('customer')),
+            'user' => new UserResource($user),
         ]);
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json([], 204);
     }
 
     public function googleRedirect(): JsonResponse
@@ -95,7 +117,6 @@ class CustomerAuthController extends Controller
         $googleUser = $driver->stateless()->user();
 
         $user = DB::transaction(function () use ($googleUser) {
-            // Check if user already linked via google_id
             $user = User::where('google_id', $googleUser->getId())->first();
 
             if ($user) {
@@ -105,7 +126,6 @@ class CustomerAuthController extends Controller
                 return $user;
             }
 
-            // Check if a user with this email already exists (registered via email/password)
             $user = User::where('email', $googleUser->getEmail())->first();
 
             if ($user) {
@@ -116,7 +136,6 @@ class CustomerAuthController extends Controller
                 return $user;
             }
 
-            // Create new user + customer profile
             $nameParts = explode(' ', $googleUser->getName(), 2);
             $firstName = $nameParts[0];
             $lastName = $nameParts[1] ?? '';
@@ -140,31 +159,11 @@ class CustomerAuthController extends Controller
             return $user;
         });
 
-        $token = $user->createToken('customer_token')->plainTextToken;
+        Auth::login($user);
+        $request->session()->regenerate();
 
         return response()->json([
-            'access_token' => $token,
             'user' => new UserResource($user->load('customer')),
-        ]);
-    }
-
-    public function logout(Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user = $request->user();
-        /** @var \Laravel\Sanctum\PersonalAccessToken $token */
-        $token = $user->currentAccessToken();
-        $token->delete();
-
-        return response()->json([], 204);
-    }
-
-    public function user(Request $request): JsonResponse
-    {
-        $user = $request->user()->load('customer');
-
-        return response()->json([
-            'user' => new UserResource($user),
         ]);
     }
 }
