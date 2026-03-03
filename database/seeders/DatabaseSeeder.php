@@ -21,7 +21,11 @@ class DatabaseSeeder extends Seeder
 
         Model::unguard();
 
-        $this->call(\Database\Seeders\UserSeeder23Feb25::class);
+        $this->call([
+            \Database\Seeders\UserSeeder23Feb25::class,
+            \Database\Seeders\CategorySeeder03Mar26::class,
+            \Database\Seeders\ProductSeeder03Mar26::class,
+        ]);
 
         Model::reguard();
     }

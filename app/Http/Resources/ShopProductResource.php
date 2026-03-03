@@ -2,33 +2,38 @@
 
 namespace App\Http\Resources;
 
-use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
-class ProductResource extends JsonResource
+class ShopProductResource extends JsonResource
 {
-    public static $wrap = false;
-
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
+        $activeDiscount = $this->whenLoaded('activeDiscount');
+
         return [
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
             'price' => $this->price,
-            'quantity' => $this->quantity,
+            'discount_price' => $activeDiscount?->discount_price,
+            'discount_ends_at' => $activeDiscount?->ends_at,
+            'category' => $this->whenLoaded('category', fn () => $this->category->slug),
             'category_id' => $this->category_id,
-            'featured' => $this->featured,
             'rating' => $this->rating,
             'reviews_count' => $this->reviews_count,
-            'images' => $this->images ?? [],
+            'quantity' => $this->quantity,
+            'featured' => $this->featured,
             'image_url' => $this->resolveImageUrl($this->image),
-            'created_at' => (new DateTime($this->created_at))->format('Y-m-d H:i:s'),
-            'updated_at' => (new DateTime($this->updated_at))->format('Y-m-d H:i:s'),
+            'images' => $this->images ?? [],
         ];
     }
 
@@ -38,6 +43,7 @@ class ProductResource extends JsonResource
             return null;
         }
 
+        // If it's already a full URL (e.g. unsplash), return as-is
         if (str_starts_with($image, 'http')) {
             return $image;
         }

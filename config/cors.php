@@ -22,10 +22,14 @@ return [
     'allowed_origins' => [
         'http://shop.larvue.local:5173',
         'http://manage.larvue.local:5173',
+        'http://shop.larvue.localhost:5173',
+        'http://manage.larvue.localhost:5173',
         'http://localhost:5173',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^http:\/\/[\w-]+\.larvue\.localhost(:\d+)?$/',
+    ],
 
     'allowed_headers' => ['*'],
 

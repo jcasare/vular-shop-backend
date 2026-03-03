@@ -16,12 +16,18 @@ class ProductList extends JsonResource
      */
     public function toArray($request): array
     {
+        $imageUrl = $this->image
+            ? (str_starts_with($this->image, 'http') ? $this->image : URL::to(Storage::url($this->image)))
+            : null;
+
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'image_url' => $this->image ? URL::to(Storage::url($this->image)) : null,
+            'image_url' => $imageUrl,
             'price' => $this->price,
             'quantity' => $this->quantity,
+            'category_id' => $this->category_id,
+            'featured' => $this->featured,
             'updated_at' => (new DateTime($this->updated_at))->format('Y-m-d H:i:s'),
         ];
     }

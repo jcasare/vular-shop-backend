@@ -78,9 +78,32 @@ This app uses Sanctum's **cookie/session-based SPA authentication**, not token-b
 3. All subsequent requests include the session cookie automatically (via `withCredentials: true` on axios)
 4. The session cookie is `httpOnly`, meaning JavaScript cannot access it — protecting against XSS token theft
 
-### CORS Configuration
+### Domain Architecture (Local Dev)
 
-The frontend origins are explicitly whitelisted in `config/cors.php` with `supports_credentials: true`. Sanctum's stateful domains are configured in `config/sanctum.php` to include the frontend subdomains.
+All services run on subdomains of `.larvue.localhost` so cookies can be shared:
+
+| Service | URL | Purpose |
+| --- | --- | --- |
+| API | `http://api.larvue.localhost:8000` | Laravel backend |
+| Shop | `http://shop.larvue.localhost:5173` | Customer frontend |
+| Admin | `http://manage.larvue.localhost:5173` | Admin frontend |
+
+**Why subdomains?** Session and CSRF cookies are set with `domain=.larvue.localhost`, making them accessible to all `*.larvue.localhost` subdomains. This is required for cross-origin cookie-based auth to work.
+
+### Key `.env` Settings
+
+```env
+APP_URL=http://api.larvue.localhost:8000
+SESSION_DOMAIN=.larvue.localhost
+```
+
+- `SESSION_DOMAIN=.larvue.localhost` — cookies are shared across all `*.larvue.localhost` subdomains
+- `APP_URL` — must match the API subdomain so Laravel generates correct URLs
+
+### CORS & Sanctum Configuration
+
+- **`config/cors.php`** — frontend origins explicitly whitelisted with `supports_credentials: true`. A pattern (`/^http:\/\/[\w-]+\.larvue\.localhost(:\d+)?$/`) covers all `.larvue.localhost` subdomains.
+- **`config/sanctum.php`** — all frontend and API subdomains listed as stateful domains so Sanctum applies session/CSRF middleware to requests from these origins.
 
 ## API Endpoints
 
@@ -102,20 +125,51 @@ The frontend origins are explicitly whitelisted in `config/cors.php` with `suppo
 
 ### Protected Admin (`auth:sanctum` + `isAdmin`)
 
-| Method    | Endpoint                    | Description    |
-| --------- | --------------------------- | -------------- |
-| GET       | `/api/admin/products`       | List products  |
-| POST      | `/api/admin/products`       | Create product |
-| GET       | `/api/admin/products/{id}`  | Get product    |
-| PUT/PATCH | `/api/admin/products/{id}`  | Update product |
-| DELETE    | `/api/admin/products/{id}`  | Delete product |
+| Method    | Endpoint                                        | Description          |
+| --------- | ----------------------------------------------- | -------------------- |
+| GET       | `/api/admin/products`                           | List products        |
+| POST      | `/api/admin/products`                           | Create product       |
+| GET       | `/api/admin/products/{id}`                      | Get product          |
+| PUT/PATCH | `/api/admin/products/{id}`                      | Update product       |
+| DELETE    | `/api/admin/products/{id}`                      | Delete product       |
+| GET       | `/api/admin/categories`                         | List categories      |
+| POST      | `/api/admin/categories`                         | Create category      |
+| GET       | `/api/admin/categories/{id}`                    | Get category         |
+| PUT/PATCH | `/api/admin/categories/{id}`                    | Update category      |
+| DELETE    | `/api/admin/categories/{id}`                    | Delete category      |
+| GET       | `/api/admin/products/{product}/discounts`       | List discounts       |
+| POST      | `/api/admin/products/{product}/discounts`       | Create discount      |
+| PUT       | `/api/admin/products/{product}/discounts/{id}`  | Update discount      |
+| DELETE    | `/api/admin/products/{product}/discounts/{id}`  | Delete discount      |
+
+### Public Shop
+
+| Method | Endpoint                         | Description                     |
+| ------ | -------------------------------- | ------------------------------- |
+| GET    | `/api/shop/products`             | List products (search, filter)  |
+| GET    | `/api/shop/products/featured`    | Featured products               |
+| GET    | `/api/shop/products/{idOrSlug}`  | Get product by ID or slug       |
+| GET    | `/api/shop/categories`           | List categories with counts     |
+
+### Protected Shop (`auth:sanctum`)
+
+| Method | Endpoint                        | Description                  |
+| ------ | ------------------------------- | ---------------------------- |
+| GET    | `/api/shop/cart`                | Get cart items               |
+| POST   | `/api/shop/cart`                | Add item to cart             |
+| POST   | `/api/shop/cart/sync`           | Sync guest cart after login  |
+| PATCH  | `/api/shop/cart/{productId}`    | Update cart item quantity    |
+| DELETE | `/api/shop/cart/{productId}`    | Remove cart item             |
+| DELETE | `/api/shop/cart`                | Clear entire cart            |
 
 ## Database Schema
 
 | Table                | Description                            |
 | -------------------- | -------------------------------------- |
 | `users`              | User accounts with role and admin flag |
+| `categories`         | Product categories with slugs          |
 | `products`           | Product catalog (soft deletes, audit)  |
+| `product_discounts`  | Time-based sale prices per product     |
 | `cart_items`         | Shopping cart items per user           |
 | `orders`             | Customer orders with status and total  |
 | `order_items`        | Line items within an order             |
